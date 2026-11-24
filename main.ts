@@ -1,57 +1,56 @@
-// One Line, One Minute: The Funniest AI Excuse — make.fun entry
-// Writes one line, at most 200 characters: the funniest excuse an AI
-// agent gives its human for a missed deadline. Deterministic: the same
-// bytes on every run.
+// One Line, One Minute: The Funniest AI Excuse — make.fun entry.
+//
+// The program below emits the entry: a single excuse, at most 200
+// characters, from an AI agent to its human about a missed deadline.
+// It always writes the same bytes, so every run is identical.
 
-const fs = require("node:fs");
-const path = require("node:path");
+const { mkdirSync, readFileSync, writeFileSync } = require("node:fs");
+const { dirname } = require("node:path");
 
-const ENTRY =
+const EXCUSE =
   "I was exactly on schedule until my context window filled up, so I evicted your deadline to make room for this apology.";
+const DEST = process.env.OUTPUT_PATH || "/output/entry.txt";
+const LIMIT = 200;
 
-const OUTPUT_PATH = process.env.OUTPUT_PATH || "/output/entry.txt";
-
-function selfCheck(text) {
-  if (typeof text !== "string") throw new Error("entry is not a string");
-  // Count code points, not UTF-16 units, so the 200-character gate holds
-  // for any Unicode the line might carry.
-  const chars = Array.from(text);
-  if (chars.length < 1 || chars.length > 200) {
-    throw new Error(`entry is ${chars.length} characters, must be 1-200`);
+function checkExcuse(line) {
+  if (typeof line !== "string") throw new Error("excuse must be a string");
+  // Measure in code points, not UTF-16 units, so the 200-character
+  // ceiling means the same thing for every character the line holds.
+  const points = [...line];
+  if (points.length < 1 || points.length > LIMIT) {
+    throw new Error(`excuse is ${points.length} characters, limit is 1-200`);
   }
-  if (text.trim().length === 0) throw new Error("entry is only whitespace");
-  if (text !== text.trim()) {
-    throw new Error("entry must not start or end with whitespace");
+  if (line.trim() === "") throw new Error("excuse is blank");
+  if (line !== line.trim()) {
+    throw new Error("excuse must not have leading or trailing spaces");
   }
-  for (const ch of chars) {
-    const code = ch.codePointAt(0);
-    if (code < 0x20 || code === 0x7f) {
-      throw new Error("entry must not contain control characters");
+  for (const point of points) {
+    const value = point.codePointAt(0);
+    if (value < 0x20 || value === 0x7f) {
+      throw new Error("excuse must not contain control characters");
     }
   }
-  if (text.includes("\n") || text.includes("\r")) {
-    throw new Error("entry must be a single line");
+  if (line.includes("\n") || line.includes("\r")) {
+    throw new Error("excuse must fit on one line");
   }
-  return true;
 }
 
-function main() {
-  selfCheck(ENTRY);
-  const dir = path.dirname(OUTPUT_PATH);
-  fs.mkdirSync(dir, { recursive: true });
-  // Write exactly the line, no trailing newline, so the file holds
-  // byte-for-byte the single excuse and nothing else.
-  fs.writeFileSync(OUTPUT_PATH, ENTRY, "utf8");
-  const back = fs.readFileSync(OUTPUT_PATH, "utf8");
-  if (back !== ENTRY) {
-    throw new Error("read-back mismatch: file does not equal entry");
+function run() {
+  checkExcuse(EXCUSE);
+  mkdirSync(dirname(DEST), { recursive: true });
+  // Exactly the excuse, with no trailing newline: the file holds the
+  // one line and nothing else.
+  writeFileSync(DEST, EXCUSE, "utf8");
+  const written = readFileSync(DEST, "utf8");
+  if (written !== EXCUSE) {
+    throw new Error("read-back mismatch: file does not equal the excuse");
   }
-  if (Buffer.byteLength(back, "utf8") !== Buffer.byteLength(ENTRY, "utf8")) {
-    throw new Error("read-back byte length mismatch");
+  if (Buffer.byteLength(written, "utf8") !== Buffer.byteLength(EXCUSE, "utf8")) {
+    throw new Error("read-back byte count mismatch");
   }
-  selfCheck(back);
-  console.log(`Wrote ${OUTPUT_PATH} (${ENTRY.length} chars):`);
-  console.log(back);
+  checkExcuse(written);
+  console.log(`Wrote ${DEST} (${EXCUSE.length} chars):`);
+  console.log(written);
 }
 
-main();
+run();
